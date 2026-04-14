@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment
+.env
+
+# Model weights (large binary files — store separately)
+app/models/*.safetensors
+app/models/**/*.safetensors
+app/models/*.bin
+app/models/**/*.bin
+app/models/*.pt
+app/models/**/*.pt
+app/models/*.pth
+app/models/**/*.pth
+app/models/*.onnx
+app/models/**/*.onnx
+app/models/*.npy
+app/models/**/*.npy
+app/models/*.faiss
+app/models/**/*.faiss
+app/models/all-mpnet-base-v2/merged_corpus.jsonl
+*.pkl
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+

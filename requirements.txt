@@ -1,0 +1,23 @@
+# ── Core API ──────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+jinja2>=3.1.4
+pydantic>=2.7.0
+pydantic-settings>=2.2.1
+
+# ── ML / NLP ─────────────────────────────────────────────────────────────────
+torch>=2.2.0
+transformers>=4.41.0
+sentencepiece>=0.2.0         # required by some T5 tokenizers
+protobuf>=4.25.0             # sentencepiece dependency
+accelerate>=0.30.0           # for model.to(device) helpers
+
+# ── Retrieval ─────────────────────────────────────────────────────────────────
+sentence-transformers>=3.0.0
+faiss-cpu>=1.8.0             # swap for faiss-gpu if CUDA available
+numpy>=1.26.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+tqdm>=4.66.0
+python-dotenv>=1.0.1

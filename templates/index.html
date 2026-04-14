@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Indian Legal RAG — Case Analysis System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ─── Design tokens ─────────────────────────────────────────── */
+  :root {
+    --ink:       #1a1612;
+    --parchment: #f5f0e8;
+    --cream:     #faf7f2;
+    --gold:      #c9933a;
+    --gold-lt:   #e8b96a;
+    --rust:      #8b3a2e;
+    --teal:      #1e5f6b;
+    --teal-lt:   #2a7d8c;
+    --slate:     #3d4451;
+    --muted:     #7a7368;
+    --border:    #d4cdc0;
+    --card-bg:   #ffffff;
+    --shadow:    rgba(26,22,18,0.10);
+
+    --font-serif: 'Cormorant Garamond', Georgia, serif;
+    --font-sans:  'Outfit', system-ui, sans-serif;
+    --font-mono:  'DM Mono', monospace;
+
+    --radius: 6px;
+    --transition: 220ms cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ─── Reset & base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--parchment);
+    color: var(--ink);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ─── Header ───────────────────────────────────────────────── */
+  header {
+    background: var(--ink);
+    color: var(--parchment);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.35);
+  }
+  .header-crest {
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .header-title {
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--parchment);
+  }
+  .header-sub {
+    font-size: .72rem;
+    font-weight: 300;
+    color: #9e9690;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .header-badge {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    padding: 3px 10px;
+    border: 1px solid #3a3530;
+    border-radius: 20px;
+    color: #9e9690;
+    letter-spacing: .06em;
+  }
+  .header-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #4caf50;
+    display: inline-block;
+    margin-right: 5px;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100%{ opacity:1; } 50%{ opacity:.4; }
+  }
+
+  /* ─── Main layout ──────────────────────────────────────────── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* ─── Input card ───────────────────────────────────────────── */
+  .input-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.8rem 2rem 1.5rem;
+    box-shadow: 0 1px 6px var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+  .input-card label {
+    display: block;
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: .3rem;
+  }
+  .input-card .hint {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-bottom: .8rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 160px;
+    padding: .9rem 1rem;
+    font-family: var(--font-sans);
+    font-size: .9rem;
+    line-height: 1.65;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--cream);
+    color: var(--ink);
+    resize: vertical;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    outline: none;
+  }
+  textarea:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(30,95,107,.12);
+  }
+  .input-footer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: .8rem;
+  }
+  .topk-label {
+    font-size: .8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  select {
+    padding: .4rem .7rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--cream);
+    font-family: var(--font-sans);
+    font-size: .83rem;
+    color: var(--ink);
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--teal); }
+
+  .btn-analyze {
+    margin-left: auto;
+    padding: .6rem 2rem;
+    background: var(--teal);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-sans);
+    font-size: .88rem;
+    font-weight: 500;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .btn-analyze:hover { background: var(--teal-lt); box-shadow: 0 3px 10px rgba(30,95,107,.25); }
+  .btn-analyze:active { transform: translateY(1px); }
+  .btn-analyze:disabled { background: #9eb8bc; cursor: not-allowed; }
+  .btn-icon { font-size: 1rem; }
+
+  /* ─── Loading state ────────────────────────────────────────── */
+  #loading {
+    display: none;
+    text-align: center;
+    padding: 2.5rem;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto .8rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── Error banner ─────────────────────────────────────────── */
+  #error-banner {
+    display: none;
+    background: #fdf1f0;
+    border: 1px solid #f1c4c0;
+    border-left: 4px solid var(--rust);
+    border-radius: var(--radius);
+    padding: .9rem 1.1rem;
+    color: var(--rust);
+    font-size: .85rem;
+    margin-bottom: 1.2rem;
+  }
+
+  /* ─── Results ──────────────────────────────────────────────── */
+  #results { display: none; }
+
+  /* Query summary banner */
+  .summary-banner {
+    background: linear-gradient(135deg, #f0f7f8 0%, #e8f4f6 100%);
+    border: 1px solid #b8d9de;
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    animation: fade-in .4s ease;
+  }
+  .summary-banner .label {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: .3rem;
+  }
+  .summary-banner p {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.55;
+    color: var(--slate);
+    font-style: italic;
+  }
+
+  /* Two-column strip */
+  .meta-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 640px) { .meta-strip { grid-template-columns: 1fr; } }
+
+  /* Chip group cards */
+  .chip-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    box-shadow: 0 1px 4px var(--shadow);
+    animation: fade-in .45s ease;
+  }
+  .chip-card .card-title {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .65rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .25rem .7rem;
+    border-radius: 20px;
+    font-size: .78rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .chip-issue { background: #fdf3e3; color: #8b5e1a; border: 1px solid #e8cfA0; }
+  .chip-per   { background: #e8f0fd; color: #2c5282; border: 1px solid #b8cdee; }
+  .chip-org   { background: #edf7f0; color: #1a5c35; border: 1px solid #a8d8b8; }
+  .chip-loc   { background: #f3eeff; color: #5b2d8e; border: 1px solid #cdb8ee; }
+  .chip-score {
+    font-family: var(--font-mono);
+    font-size: .65rem;
+    opacity: .65;
+  }
+
+  /* Section header */
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    margin-bottom: .9rem;
+  }
+  .section-header h2 {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .section-header .count-badge {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    padding: 2px 8px;
+    background: var(--ink);
+    color: var(--parchment);
+    border-radius: 20px;
+  }
+
+  /* Case cards */
+  .cases-list { display: flex; flex-direction: column; gap: .9rem; }
+
+  .case-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 1px 4px var(--shadow);
+    transition: box-shadow var(--transition), transform var(--transition);
+    animation: slide-up .4s ease both;
+  }
+  .case-card:hover {
+    box-shadow: 0 4px 18px rgba(0,0,0,.12);
+    transform: translateY(-1px);
+  }
+  .case-card:nth-child(1){ animation-delay:.05s }
+  .case-card:nth-child(2){ animation-delay:.10s }
+  .case-card:nth-child(3){ animation-delay:.15s }
+  .case-card:nth-child(4){ animation-delay:.20s }
+  .case-card:nth-child(5){ animation-delay:.25s }
+
+  .case-head {
+    display: flex;
+    align-items: flex-start;
+    gap: .8rem;
+    padding: .9rem 1.1rem .6rem;
+    border-bottom: 1px solid #f0ece5;
+  }
+  .case-rank {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--muted);
+    background: var(--parchment);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+  .case-meta { flex: 1; min-width: 0; }
+  .case-title {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-bottom: .18rem;
+  }
+  .case-info {
+    font-size: .75rem;
+    color: var(--muted);
+    display: flex;
+    gap: .8rem;
+    flex-wrap: wrap;
+  }
+  .case-info span::before { content: "· "; }
+  .case-info span:first-child::before { content: ""; }
+
+  .case-score-pill {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--teal);
+    color: #fff;
+    white-space: nowrap;
+  }
+  .score-source {
+    font-size: .62rem;
+    opacity: .75;
+    display: block;
+    text-align: center;
+    margin-top: 1px;
+  }
+
+  .case-body { padding: .75rem 1.1rem; }
+
+  .snippet-text {
+    font-size: .83rem;
+    color: var(--slate);
+    line-height: 1.6;
+    margin-bottom: .6rem;
+    border-left: 3px solid var(--gold-lt);
+    padding-left: .75rem;
+    font-style: italic;
+  }
+
+  .summary-label {
+    font-family: var(--font-mono);
+    font-size: .63rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: .3rem;
+  }
+  .summary-text {
+    font-size: .84rem;
+    color: var(--ink);
+    line-height: 1.65;
+  }
+
+  /* Meta timing footer */
+  .timing-footer {
+    margin-top: 2rem;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: #bbb;
+  }
+
+  /* Animations */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Model status ─────────────────────────────────────────── */
+  .model-status-bar {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+    font-size: .72rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+  .ms-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card-bg);
+  }
+  .ms-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .ms-dot.ok { background: #4caf50; }
+  .ms-dot.mock { background: #ff9800; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-crest">⚖</div>
+  <div>
+    <div class="header-title">Indian Legal RAG</div>
+    <div class="header-sub">Case Analysis &amp; Precedent Retrieval System</div>
+  </div>
+  <div class="header-badge">
+    <span class="header-status-dot"></span>v1.0
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- Input -->
+  <div class="input-card">
+    <label for="case-input">Case Description</label>
+    <div class="hint">Describe the facts, parties, legal questions, and relevant statutes. Minimum 50 characters.</div>
+    <textarea id="case-input"
+      placeholder="E.g. The petitioner, a 45-year-old government employee, was arrested under Section 302 IPC for allegedly causing the death of his neighbour during a property dispute. He seeks bail on medical grounds, citing a prior heart condition. The prosecution argues flight risk given pending chargesheet…"></textarea>
+    <div class="input-footer">
+      <span class="topk-label">Return top</span>
+      <select id="top-k">
+        <option value="3">3 cases</option>
+        <option value="5" selected>5 cases</option>
+        <option value="10">10 cases</option>
+        <option value="15">15 cases</option>
+      </select>
+      <button class="btn-analyze" id="analyze-btn" onclick="runAnalysis()">
+        <span class="btn-icon">🔍</span> Analyze Case
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-banner"></div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-msg">Running legal analysis pipeline…</div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <!-- Model status chips -->
+    <div class="model-status-bar" id="model-status-bar"></div>
+
+    <!-- Query summary -->
+    <div class="summary-banner">
+      <div class="label">🤖 BART Query Summary</div>
+      <p id="query-summary-text"></p>
+    </div>
+
+    <!-- Issues + entities row -->
+    <div class="meta-strip">
+      <div class="chip-card">
+        <div class="card-title">⚖ Legal Issues Identified</div>
+        <div class="chips" id="issues-chips"></div>
+      </div>
+      <div class="chip-card">
+        <div class="card-title">🏷 Named Entities</div>
+        <div class="chips" id="entities-chips"></div>
+      </div>
+    </div>
+
+    <!-- Similar cases -->
+    <div class="section-header">
+      <h2>Similar Cases &amp; Precedents</h2>
+      <span class="count-badge" id="cases-count">0</span>
+    </div>
+    <div class="cases-list" id="cases-list"></div>
+
+    <!-- Timing -->
+    <div class="timing-footer" id="timing-footer"></div>
+  </div>
+
+</main>
+
+<script>
+const loadingMessages = [
+  "Extracting legal issues via LegalBERT…",
+  "Running RoBERTa NER on case text…",
+  "Embedding query with all-mpnet-base-v2…",
+  "FAISS + BM25 hybrid retrieval in progress…",
+  "Re-ranking via Reciprocal Rank Fusion…",
+  "Summarising retrieved cases with BART…",
+  "Compiling final analysis…",
+];
+
+let loadingTimer;
+
+function startLoadingMessages() {
+  let i = 0;
+  document.getElementById("loading-msg").textContent = loadingMessages[0];
+  loadingTimer = setInterval(() => {
+    i = (i + 1) % loadingMessages.length;
+    document.getElementById("loading-msg").textContent = loadingMessages[i];
+  }, 1800);
+}
+
+function stopLoadingMessages() {
+  clearInterval(loadingTimer);
+}
+
+async function runAnalysis() {
+  const text = document.getElementById("case-input").value.trim();
+  const topK = parseInt(document.getElementById("top-k").value, 10);
+
+  if (text.length < 50) {
+    showError("Please provide a case description of at least 50 characters.");
+    return;
+  }
+
+  hideError();
+  showLoading(true);
+  document.getElementById("results").style.display = "none";
+  document.getElementById("analyze-btn").disabled = true;
+
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ case_description: text, top_k: topK }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "Server error");
+    }
+
+    const data = await res.json();
+    renderResults(data);
+  } catch (e) {
+    showError("Analysis failed: " + e.message);
+  } finally {
+    showLoading(false);
+    document.getElementById("analyze-btn").disabled = false;
+  }
+}
+
+function renderResults(data) {
+  // Model status bar
+  const bar = document.getElementById("model-status-bar");
+  bar.innerHTML = "";
+  const ml = data.processing_meta?.models_loaded || {};
+  const labels = {
+    legal_bert_issue_extraction: "LegalBERT",
+    roberta_ner: "RoBERTa NER",
+    faiss_bm25_retriever: "FAISS+BM25",
+    t5_summarizer: "BART",
+  };
+  for (const [key, loaded] of Object.entries(ml)) {
+    const chip = document.createElement("div");
+    chip.className = "ms-chip";
+    chip.innerHTML = `<span class="ms-dot ${loaded ? 'ok' : 'mock'}"></span>${labels[key] || key}: ${loaded ? 'loaded' : 'mock'}`;
+    bar.appendChild(chip);
+  }
+
+  // Query summary
+  document.getElementById("query-summary-text").textContent = data.query_summary || "—";
+
+  // Issues chips
+  const issuesEl = document.getElementById("issues-chips");
+  issuesEl.innerHTML = "";
+  const issues = (data.legal_issues || []);
+  const issueScoreTotal = issues.reduce((sum, iss) => {
+    const score = Number(iss.score) || 0;
+    return sum + Math.max(score, 0);
+  }, 0);
+
+  issues.forEach(iss => {
+    const rawScore = Math.max(Number(iss.score) || 0, 0);
+    const normalizedPct = issueScoreTotal > 0
+      ? (rawScore / issueScoreTotal) * 100
+      : 0;
+    const c = document.createElement("span");
+    c.className = "chip chip-issue";
+    c.innerHTML = `${iss.label} <span class="chip-score">${normalizedPct.toFixed(0)}%</span>`;
+    issuesEl.appendChild(c);
+  });
+
+  // Entities chips
+  const entEl = document.getElementById("entities-chips");
+  entEl.innerHTML = "";
+  (data.entities || []).forEach(ent => {
+    const cls = { PER: "chip-per", ORG: "chip-org", LOC: "chip-loc" }[ent.label] || "chip-issue";
+    const icon = { PER: "👤", ORG: "🏛", LOC: "📍" }[ent.label] || "";
+    const c = document.createElement("span");
+    c.className = `chip ${cls}`;
+    c.innerHTML = `${icon} ${ent.text} <span class="chip-score">${(ent.score * 100).toFixed(0)}%</span>`;
+    entEl.appendChild(c);
+  });
+
+  // Cases
+  const list = document.getElementById("cases-list");
+  list.innerHTML = "";
+  document.getElementById("cases-count").textContent = (data.similar_cases || []).length;
+
+  (data.similar_cases || []).forEach((c, i) => {
+    const card = document.createElement("div");
+    card.className = "case-card";
+
+    const court = c.court ? `<span>${c.court}</span>` : "";
+    const date  = c.date  ? `<span>${c.date}</span>`  : "";
+    const src   = c.source ? c.source.toUpperCase() : "FAISS";
+
+    card.innerHTML = `
+      <div class="case-head">
+        <div class="case-rank">#${i + 1}</div>
+        <div class="case-meta">
+          <div class="case-title">${escHtml(c.title)}</div>
+          <div class="case-info">
+            <span>${escHtml(c.case_id)}</span>
+            ${court}<span>${date}</span>
+          </div>
+        </div>
+        <div>
+          <div class="case-score-pill">
+            ${(c.score * 100).toFixed(2)}%
+            <span class="score-source">${escHtml(src)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="case-body">
+        ${c.snippet ? `<div class="snippet-text">"${escHtml(c.snippet)}"</div>` : ""}
+        <div class="summary-label">BART Summary</div>
+        <div class="summary-text">${escHtml(c.summary)}</div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Timings
+  const t = data.processing_meta?.timings || {};
+  const parts = Object.entries(t)
+    .filter(([k]) => k !== "total_ms")
+    .map(([k, v]) => `${k.replace(/_ms$/, "")}: ${v}ms`);
+  document.getElementById("timing-footer").textContent =
+    `Total: ${t.total_ms || "?"}ms  |  ${parts.join("  ·  ")}`;
+
+  document.getElementById("results").style.display = "block";
+  document.getElementById("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showLoading(on) {
+  document.getElementById("loading").style.display = on ? "block" : "none";
+  if (on) startLoadingMessages(); else stopLoadingMessages();
+}
+
+function showError(msg) {
+  const el = document.getElementById("error-banner");
+  el.textContent = "⚠ " + msg;
+  el.style.display = "block";
+}
+function hideError() {
+  document.getElementById("error-banner").style.display = "none";
+}
+function escHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Allow Ctrl+Enter to submit
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("case-input").addEventListener("keydown", e => {
+    if (e.ctrlKey && e.key === "Enter") runAnalysis();
+  });
+});
+</script>
+</body>
+</html>
