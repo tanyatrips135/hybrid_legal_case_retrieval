@@ -55,3 +55,4 @@ logs/
 htmlcov/
 .pytest_cache/
 
+sample_queries.json
