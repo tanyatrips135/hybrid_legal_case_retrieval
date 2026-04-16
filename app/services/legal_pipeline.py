@@ -23,9 +23,11 @@ from app.models.schemas import (
     SimilarCase,
 )
 from app.services.issue_extractor import IssueExtractor
+from app.services.case_validator import CaseValidator
 from app.services.ner_extractor import NERExtractor
 from app.services.retriever import HybridRetriever
 from app.services.summarizer import Summarizer
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,7 @@ class LegalPipeline:
         self.ner_extractor = NERExtractor()
         self.retriever = HybridRetriever()
         self.summarizer = Summarizer()
+        self.case_validator = CaseValidator()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -47,6 +50,7 @@ class LegalPipeline:
         self.ner_extractor.load()
         self.retriever.load()
         self.summarizer.load()
+        self.case_validator.load()
 
     @property
     def models_loaded(self) -> dict[str, bool]:
@@ -55,6 +59,7 @@ class LegalPipeline:
             "roberta_ner": self.ner_extractor.loaded,
             "faiss_bm25_retriever": self.retriever.loaded,
             "t5_summarizer": self.summarizer.loaded,
+            "retrieval_validator": self.case_validator.loaded,
         }
 
     # ── Main entry point ──────────────────────────────────────────────────────
@@ -97,6 +102,36 @@ class LegalPipeline:
         similar_cases = self._build_similar_cases(raw_hits)
         timings["case_summaries_ms"] = round((time.perf_counter() - t) * 1000, 1)
 
+        # ── Step 7: Validate retrieval relevance ─────────────────────────────
+        t = time.perf_counter()
+        validation = self.case_validator.validate_cases(query_summary, similar_cases)
+        similar_cases = self._apply_validation(similar_cases, validation)
+        validation_summary = validation.get("summary", {})
+        logger.info(
+            (
+                "Validation | mode=%s | decision=%s | relevant=%s | "
+                "highly_relevant=%s"
+            ),
+            validation.get("mode", "unknown"),
+            validation_summary.get("decision", "unknown"),
+            validation_summary.get("relevant_count", 0),
+            validation_summary.get("highly_relevant_count", 0),
+        )
+        for case in similar_cases:
+            logger.info(
+                "Validation Case | case_id=%s | label=%s | score=%s | reason=%s",
+                case.case_id,
+                case.validation_label,
+                case.validation_score,
+                (case.validation_reason or "")[:160],
+            )
+        if (
+            settings.VALIDATION_ENFORCE_DECISION
+            and validation.get("summary", {}).get("decision") == "REJECT_RESULTS"
+        ):
+            similar_cases = []
+        timings["validation_ms"] = round((time.perf_counter() - t) * 1000, 1)
+
         timings["total_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         logger.info("Pipeline complete in %.0f ms", timings["total_ms"])
 
@@ -109,6 +144,12 @@ class LegalPipeline:
                 "timings": timings,
                 "models_loaded": self.models_loaded,
                 "enriched_query_length": len(enriched_query),
+                "validation": {
+                    "enabled": settings.VALIDATION_ENABLED,
+                    "mode": validation.get("mode", "unknown"),
+                    "summary": validation.get("summary", {}),
+                    "enforced": settings.VALIDATION_ENFORCE_DECISION,
+                },
             },
         )
 
@@ -153,7 +194,8 @@ class LegalPipeline:
                 metas.append({**meta, **hit})
 
         for i, (meta, hit) in enumerate(zip(metas, raw_hits)):
-            existing_summary = meta.get("summary", "").strip()  # "" for CJPE records
+            raw_summary = meta.get("summary", "")
+            existing_summary = raw_summary.strip() if isinstance(raw_summary, str) else ""
             case_id = str(meta.get("case_id", ""))
             full_text = self.retriever.get_full_text(case_id)
             display_snippet = full_text or meta.get("text_snippet", "")
@@ -182,3 +224,26 @@ class LegalPipeline:
                 cases[idx] = cases[idx].model_copy(update={"summary": t5_summary})
 
         return cases
+
+    @staticmethod
+    def _apply_validation(
+        cases: list[SimilarCase],
+        validation: dict[str, Any],
+    ) -> list[SimilarCase]:
+        scored = validation.get("cases", [])
+        if not isinstance(scored, list):
+            return cases
+
+        updated: list[SimilarCase] = []
+        for idx, case in enumerate(cases):
+            row = scored[idx] if idx < len(scored) and isinstance(scored[idx], dict) else {}
+            updated.append(
+                case.model_copy(
+                    update={
+                        "validation_score": row.get("final_score"),
+                        "validation_label": row.get("label"),
+                        "validation_reason": row.get("reason"),
+                    }
+                )
+            )
+        return updated

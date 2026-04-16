@@ -118,6 +118,43 @@ class TestSummarizer:
         assert all(isinstance(r, str) for r in results)
 
 
+# ── CaseValidator ─────────────────────────────────────────────────────────────
+
+class TestCaseValidator:
+    def test_fallback_validate_shape(self):
+        from app.services.case_validator import CaseValidator
+        from app.models.schemas import SimilarCase
+
+        validator = CaseValidator()
+        cases = [
+            SimilarCase(
+                case_id="C1",
+                title="Case 1",
+                snippet="Contract breach and delayed delivery dispute.",
+                score=0.91,
+                source="faiss+bm25",
+                summary="Dispute over delayed delivery and financial damages.",
+            ),
+            SimilarCase(
+                case_id="C2",
+                title="Case 2",
+                snippet="Criminal theft and assault matter.",
+                score=0.71,
+                source="faiss+bm25",
+                summary="A criminal case unrelated to contract law.",
+            ),
+        ]
+
+        out = validator._fallback_validate(
+            "Breach of contract involving delayed delivery and damages.",
+            cases,
+        )
+        assert "cases" in out
+        assert "summary" in out
+        assert len(out["cases"]) == 2
+        assert out["summary"]["decision"] in {"SHOW_RESULTS", "REJECT_RESULTS"}
+
+
 # ── Pipeline integration (mocked models) ─────────────────────────────────────
 
 class TestPipeline:
@@ -146,6 +183,7 @@ class TestPipeline:
             "roberta_ner",
             "faiss_bm25_retriever",
             "t5_summarizer",
+            "retrieval_validator",
         }
 
     def test_enriched_query_appends_labels(self):
@@ -156,3 +194,18 @@ class TestPipeline:
         q = LegalPipeline._build_retrieval_query("Base query.", issues, entities)
         assert "Bail / Anticipatory Bail" in q
         assert "Delhi" in q
+
+    def test_pipeline_adds_validation_annotations(self):
+        from app.services.legal_pipeline import LegalPipeline
+
+        pipeline = LegalPipeline()
+        result = pipeline.run(
+            "Commercial dispute concerning delayed delivery and contract breach "
+            "causing significant monetary losses to the buyer.",
+            top_k=2,
+        )
+
+        assert "validation" in result.processing_meta
+        assert len(result.similar_cases) <= 2
+        if result.similar_cases:
+            assert result.similar_cases[0].validation_label is not None

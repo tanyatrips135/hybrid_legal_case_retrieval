@@ -3,6 +3,7 @@ Configuration — all paths and hyper-parameters in one place.
 Override via environment variables or a .env file.
 """
 
+import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
@@ -37,6 +38,13 @@ class Settings(BaseSettings):
     TOP_K_BM25: int = 20           # candidates fetched from BM25
     TOP_K_FINAL: int = 5           # results returned after re-ranking
     BM25_CACHE_PATH: Path = Path("app/models/all-mpnet-base-v2/bm25_cache.pkl")
+
+    # ── Post-retrieval validation ────────────────────────────────────────────
+    VALIDATION_ENABLED: bool = True
+    VALIDATION_MODEL: str = "llama-3.3-70b-versatile"
+    VALIDATION_TEMPERATURE: float = 0.1
+    VALIDATION_ENFORCE_DECISION: bool = False
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     # ── NER labels to keep ───────────────────────────────────────────────────
     NER_KEEP_LABELS: list[str] = ["PER", "ORG", "LOC",

@@ -30,6 +30,12 @@ User Input (case description)
              │
              ▼
 ┌──────────────────────────────┐
+│  Retrieval Validation        │  LLM (Groq) scoring + fallback heuristic
+│  (5-metric relevance check)  │  decision: SHOW_RESULTS / REJECT_RESULTS
+└────────────┬─────────────────┘
+             │
+             ▼
+┌──────────────────────────────┐
 │  Judgment Summarization      │  T5 fine-tuned on IN-Abs
 │  (t5-legal-explainer)        │  → query summary + per-case summaries
 └────────────┬─────────────────┘
@@ -156,13 +162,26 @@ Returns pipeline status and per-model load state.
       "snippet": "...",
       "score": 0.812,
       "source": "faiss+bm25",
-      "summary": "T5-generated summary..."
+      "summary": "T5-generated summary...",
+      "validation_score": 4.2,
+      "validation_label": "HIGHLY_RELEVANT",
+      "validation_reason": "Strong legal issue and factual alignment."
     }
   ],
   "query_summary": "T5 summary of the input case description.",
   "processing_meta": {
     "timings": { "issue_extraction_ms": 45, "total_ms": 820 },
-    "models_loaded": { ... }
+    "models_loaded": { ... },
+    "validation": {
+      "enabled": true,
+      "mode": "llm",
+      "summary": {
+        "relevant_count": 4,
+        "highly_relevant_count": 2,
+        "decision": "SHOW_RESULTS"
+      },
+      "enforced": false
+    }
   }
 }
 ```
@@ -248,6 +267,11 @@ All settings live in `app/config.py` and can be overridden via `.env`:
 | `TOP_K_FAISS` | `20` | FAISS candidates |
 | `TOP_K_BM25` | `20` | BM25 candidates |
 | `TOP_K_FINAL` | `5` | Results after RRF |
+| `VALIDATION_ENABLED` | `true` | Enable post-retrieval validation stage |
+| `VALIDATION_MODEL` | `llama-3.3-70b-versatile` | Groq model used for case validation |
+| `VALIDATION_TEMPERATURE` | `0.1` | Sampling temperature for validator calls |
+| `VALIDATION_ENFORCE_DECISION` | `false` | If true, hide similar cases when validator decides `REJECT_RESULTS` |
+| `GROQ_API_KEY` | `""` | Required for LLM validation; fallback heuristic used if missing |
 | `T5_MAX_INPUT_TOKENS` | `512` | T5 input truncation |
 | `T5_MAX_NEW_TOKENS` | `256` | T5 generation length |
 | `T5_NUM_BEAMS` | `4` | Beam search width |

@@ -49,6 +49,9 @@ class SimilarCase(BaseModel):
     score: float           # hybrid re-rank score (higher = more similar)
     source: str            # "faiss" | "bm25" | "both"
     summary: str           # T5-generated summary
+    validation_score: float | None = None
+    validation_label: str | None = None
+    validation_reason: str | None = None
 
 
 # ── Response ─────────────────────────────────────────────────────────────────

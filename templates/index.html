@@ -248,6 +248,38 @@
     font-style: italic;
   }
 
+  .validation-banner {
+    background: linear-gradient(135deg, #f7f2e8 0%, #fdf8ef 100%);
+    border: 1px solid #e9d8b5;
+    border-left: 4px solid var(--gold);
+    border-radius: var(--radius);
+    padding: .85rem 1.1rem;
+    margin-bottom: 1.2rem;
+    animation: fade-in .4s ease;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+    font-size: .78rem;
+    color: #6b5734;
+  }
+  .validation-banner .vb-label {
+    font-family: var(--font-mono);
+    font-size: .66rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #7a5f2b;
+  }
+  .validation-banner .vb-pill {
+    font-family: var(--font-mono);
+    font-size: .66rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid #d9c59d;
+    background: #fffaf0;
+    color: #6b5734;
+  }
+
   /* Two-column strip */
   .meta-strip {
     display: grid;
@@ -397,6 +429,46 @@
 
   .case-body { padding: .75rem 1.1rem; }
 
+  .validation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-family: var(--font-mono);
+    font-size: .64rem;
+    letter-spacing: .04em;
+    border-radius: 20px;
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    margin-bottom: .45rem;
+  }
+  .validation-chip.high {
+    color: #1f5c2e;
+    background: #e8f6ec;
+    border-color: #b9debf;
+  }
+  .validation-chip.moderate {
+    color: #6f5a1f;
+    background: #fdf8e8;
+    border-color: #e9ddaf;
+  }
+  .validation-chip.weak {
+    color: #8a4e1e;
+    background: #fff1e6;
+    border-color: #f2ccae;
+  }
+  .validation-chip.not {
+    color: #7b2c2c;
+    background: #fdeeee;
+    border-color: #f0c3c3;
+  }
+
+  .validation-reason {
+    font-size: .78rem;
+    color: #6a665f;
+    line-height: 1.55;
+    margin-top: .35rem;
+  }
+
   .snippet-text {
     font-size: .83rem;
     color: var(--slate);
@@ -518,6 +590,13 @@
       <p id="query-summary-text"></p>
     </div>
 
+    <div class="validation-banner" id="validation-banner">
+      <span class="vb-label">Retrieval Validation</span>
+      <span class="vb-pill" id="vb-mode">mode: --</span>
+      <span class="vb-pill" id="vb-relevant">relevant: --</span>
+      <span class="vb-pill" id="vb-high">highly relevant: --</span>
+    </div>
+
     <!-- Issues + entities row -->
     <div class="meta-strip">
       <div class="chip-card">
@@ -615,6 +694,7 @@ function renderResults(data) {
     roberta_ner: "RoBERTa NER",
     faiss_bm25_retriever: "FAISS+BM25",
     t5_summarizer: "BART",
+    retrieval_validator: "Validator",
   };
   for (const [key, loaded] of Object.entries(ml)) {
     const chip = document.createElement("div");
@@ -625,6 +705,13 @@ function renderResults(data) {
 
   // Query summary
   document.getElementById("query-summary-text").textContent = data.query_summary || "—";
+
+  // Validation summary
+  const validation = data.processing_meta?.validation || {};
+  const validationSummary = validation.summary || {};
+  document.getElementById("vb-mode").textContent = `mode: ${validation.mode || "unknown"}`;
+  document.getElementById("vb-relevant").textContent = `relevant: ${validationSummary.relevant_count ?? 0}`;
+  document.getElementById("vb-high").textContent = `highly relevant: ${validationSummary.highly_relevant_count ?? 0}`;
 
   // Issues chips
   const issuesEl = document.getElementById("issues-chips");
@@ -670,6 +757,17 @@ function renderResults(data) {
     const court = c.court ? `<span>${c.court}</span>` : "";
     const date  = c.date  ? `<span>${c.date}</span>`  : "";
     const src   = c.source ? c.source.toUpperCase() : "FAISS";
+    const vLabel = String(c.validation_label || "NOT_AVAILABLE").toUpperCase();
+    const vScore = Number.isFinite(Number(c.validation_score))
+      ? Number(c.validation_score).toFixed(2)
+      : "--";
+    const vReason = c.validation_reason ? `<div class="validation-reason">${escHtml(c.validation_reason)}</div>` : "";
+    const vClass = {
+      HIGHLY_RELEVANT: "high",
+      MODERATELY_RELEVANT: "moderate",
+      WEAKLY_RELEVANT: "weak",
+      NOT_RELEVANT: "not",
+    }[vLabel] || "not";
 
     card.innerHTML = `
       <div class="case-head">
@@ -689,9 +787,11 @@ function renderResults(data) {
         </div>
       </div>
       <div class="case-body">
+        <div class="validation-chip ${vClass}">Validation: ${escHtml(vLabel)} (${escHtml(vScore)})</div>
         ${c.snippet ? `<div class="snippet-text">"${escHtml(c.snippet)}"</div>` : ""}
         <div class="summary-label">BART Summary</div>
         <div class="summary-text">${escHtml(c.summary)}</div>
+        ${vReason}
       </div>
     `;
     list.appendChild(card);
